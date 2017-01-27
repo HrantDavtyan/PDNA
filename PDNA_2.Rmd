@@ -1,0 +1,286 @@
+---
+title: "PDNA_version_2"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+
+# to do
+# 1) stop Filer's autowidth
+# 2) enable scroll down to see Use Default
+# 3) add the Radiobutton and correct the IF in losses
+# 4) take values from Marz inputs
+# 5) SUM damages & losses for communities
+# 6) solve the as.numeric(ac.character) issue in other way (for calculations)
+
+library("shiny")
+library("flexdashboard")
+library("DT")
+library("rhandsontable")
+library("shinyjs")
+```
+
+Community 
+=====================================
+
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+[comment]:(**Create disaster event**)
+
+```{r}
+br()
+#useShinyjs(rmd=TRUE)
+actionButton("event","Create Disaster Event", width = '100%',
+             style = "background-color: grey; border-color: grey")
+conditionalPanel(condition = "input.event %2 == 1 &&  input.newentry %2 == 0",
+dateRangeInput("date", "Date input", start = NULL, end=NULL),
+selectizeInput("marz",label="Marz",choices=list("","Shirak","Armavir","Ararat"),selected=NULL),
+selectizeInput("disaster", label = "Disaster",choices = list("","Hail", "Frost","Drought"), selected = 1),
+textAreaInput("description",label = "Description",height = '200px'))
+
+br()
+actionButton("newentry","Create a new entry",width = '100%',
+             style = "background-color: grey; border-color: grey")
+br()
+conditionalPanel(condition = "input.newentry %2 === 1 && input.event %2 == 1",
+textInput("name", label = "Name",placeholder = "Please enter farmer's full name"),
+selectInput("affect", label ="Disaster effects", multiple = TRUE,
+            choices = list("","Annual crops", "Trees and Bushes","Livestock"), selected = NULL),
+selectizeInput("community",label="Community",choices=list("","Qarakert","Dalarik","Other"),selected=NULL))
+```
+
+Column {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Specific inputs
+
+```{r, echo=FALSE}
+
+uiOutput("ui")
+
+crop_list <- sort(c("","Potato","Melon","Other"))
+
+output$ui <- renderUI({
+    if (is.null(input$affect))
+      return()
+
+    # Depending on input$affect, we'll generate a different
+    # UI component and send it to the client.
+    switch(input$affect,
+
+           "Annual crops" = wellPanel(selectizeInput("crop", "Crop name",choices = crop_list,
+                                                   options = list(create = TRUE,
+                                                   placeholder = "Which crop was affected?")),
+                                      conditionalPanel(condition ="input.crop!=''",
+                                      selectInput("unit","Measurement Unit",
+                                                   choices = list("Ha","M2")),
+                                      numericInput("lost", "Units lost", min = 0, value = 0),
+                                      # radioButtons("replanting","Replanting possible",
+                                      #              choices = c("Yes","No"), inline=TRUE),
+                                      fluidRow(column(6,numericInput("reduced","Units with Reduced Yield",
+                                                        min = 0, value = 0)),
+                                      conditionalPanel(condition ="input.reduced >0",
+                                      column(6, sliderInput("reduction","Share of Reduction",
+                                                                 min = 0, step = 5, max = 100, value = 75)))),
+                                      fluidRow(column(2,actionButton("default","Use Defaults",
+                                      style = "background-color: #337ab7; border-color: #2e6da4")),
+                                      column(2,actionButton("custom","Create Custom",
+                                      style = "background-color: orange; border-color: orange")))
+                                      )
+                                      ),
+                            #h("Explanation text, mentioning that whole affected area for a crop is
+                            #  lost + reduced")
+           "Trees and Bushes" = fluidRow(
+                                    column(3,
+                                           wellPanel(numericInput("a", "A", value =5))),
+                                    column(3,
+                                           wellPanel(numericInput("a", "A", value =5))
+                                           )),
+           "Livestock" = fluidRow(
+                                    column(3,
+                                           wellPanel(numericInput("a", "A", value = 5))
+                                           ))
+    )
+  })
+
+
+```
+
+### Report table
+
+```{r, echo=FALSE}
+dataTableOutput("table")
+
+fields <- c("date","community","disaster","name","affect","crop","unit","lost","reduced","reduction")
+
+saveData <- function(data) {
+  # Calculate Damages & Losses in the following row
+  data <- as.data.frame(cbind(t(data),
+                              Damages=as.numeric(as.character(data[8]))*200,
+                              Losses=#as.numeric(as.character(data[9]))*200+
+                          as.numeric(as.character(data[9]))*200*as.numeric(as.character(data[10]))/100+
+                            as.numeric(as.character(data[9]))*0+
+                            as.numeric(as.character(data[8]))*20#+as.numeric(as.character(data[9]))*20-100
+                          ))
+  if (exists("responses")) {
+    responses <<- rbind(responses, data)
+  } else {
+    responses <<- data
+  }
+}
+
+# copied from JavaScript lib
+opts <- list( 
+  footerCallback = JS(
+    "function( tfoot, data, start, end, display ) {",
+      "var api = this.api();",
+      "$( api.column( 5 ).footer() ).html(",
+        "api.column( 5 ).data().reduce( function ( a, b ) {",
+          "return a + b;",
+        "} )",
+        ");",
+      "}"))
+
+
+loadData <- function() {
+  if (exists("responses")) {
+    responses[c(2,3,4,6,11,12)]
+  }
+}
+
+formData <- reactive({
+    data <- sapply(fields, function(x) input[[x]])
+    data
+  })
+  
+  # When the Default button is clicked, save the form data
+  observeEvent(input$default, {
+    saveData(formData())
+  })
+  
+
+  # Show the previous responses
+  # (update with current response when default is clicked)
+  output$table <- DT::renderDataTable(filter = 'top', options = opts, {
+    input$default
+    loadData()
+  })
+```
+
+### Report table editable
+
+```{r, echo=FALSE}
+rHandsontableOutput('edit_table')
+
+  # Show the previous responses
+  # (update with current response when default is clicked)
+  output$edit_table <- renderRHandsontable({
+    input$default
+    DF=loadData()
+    rhandsontable(
+      if (!is.null(input$edit_table)) {
+      DF = hot_to_r(input$edit_table)
+    } else {
+      DF = loadData()
+    },selectCallback = TRUE,readOnly = FALSE)
+    rhandsontable(DF) %>%
+        hot_table(highlightCol = TRUE, highlightRow = TRUE)
+  })
+```
+
+Marz 
+=====================================
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+```{r, echo=FALSE}
+br()
+br()
+selectizeInput("components","Choose component to update",
+               choices = c("Annual Crops","Trees and Bushes","Livestock"),
+               options = list(create = TRUE, placeholder = "What you want to update?"))
+```
+
+Column {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Set defaults
+
+```{r, echo=FALSE}
+uiOutput("componentui")
+
+output$componentui <- renderUI({
+    if (is.null(input$components))
+      return()
+
+    switch(input$components,
+           
+           "Annual Crops" = wellPanel(selectizeInput("thecrop", "Crop name",choices = crop_list,
+                             options = list(create = TRUE, placeholder = "Please enter the crop name")),
+                            selectInput("theunit", "Measurement Unit",
+                               choices = list("Ha", "units"), selected = NULL),
+                            numericInput("styield","Standard yearly income yield / unit",
+                                         min = 0, value = 0),
+                            numericInput("repyield", "Replanted income yield / unit",min = 0, value = 0),
+                            numericInput("repcost","Replanting cost / unit",min = 0, value = 0),
+                            numericInput("reccost","Recovery cost / unit",min = 0, value = 0)
+                            ),
+           
+           "Trees and Bushes" = wellPanel(
+                                selectizeInput("thetree","Crop type",choices ="",
+                                options = list(create=TRUE, placeholder = "Please enter the crop name")),
+                                selectInput("treeunit","Measurement Unit", choices = list("ha", "units"), 
+                                            selected = 1),
+                                numericInput("treestyield","Standard yearly income yield / unit",
+                                             min = 0, value = 0),
+                                numericInput("treerepcost","Replanting cost / unit",min = 0, value = 0), 
+                                numericInput("treemaincost","Maitanance cost / unit",min = 0, value = 0),
+                                numericInput("treereccost","Recovery cost / unit", min = 0, value = 0)
+                            ),
+           "Livestock" = wellPanel()
+    )
+})
+
+
+```
+
+### Calculator
+
+```{r,echo=FALSE}
+uiOutput("calculators")
+
+output$calculators <- renderUI({
+    if (is.null(input$components))
+      return()
+
+    switch(input$components,
+           
+           "Annual Crops" = wellPanel(    
+                                numericInput("cropcalcunit","Units",min = 0, value = 1),
+                                numericInput("cropcalcyield","Yield in AMD",min = 0, value = 1000),
+                                numericInput("cropcalccostunits","Units", min = 0, value = 1),
+                                numericInput("cropcalccostcost","Cost in AMD",min = 0, value = 1000)
+           ),  
+           "Trees and Bushes" = wellPanel(
+                                numericInput("treecalcunit","Units", min = 0, value = 1),
+                                numericInput("treecalcyield","Yield (AMD)", min = 0, value = 1000),
+                                numericInput("treecalccostunit","Units",min = 0, value = 1),
+                                numericInput("treecalccostcost","Cost (AMD)", min = 0, value = 1000)
+           ),
+           "Livestock" = wellPanel(
+                                numericInput("livecalcunit","Units", min = 0, value = 1),
+                                numericInput("livecalcyield","Yield (AMD)",min = 0, value = 1000),
+                                numericInput("livecalccostunit","Units", min = 0, value = 1),
+                                numericInput("livecalccostcost","Cost (AMD)", min = 0, value = 1000)
+           )
+           )
+})
+```
+
+### Help
+
+You can get help from this page it provides an easy way to add text to accompany other widgets.
