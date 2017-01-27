@@ -1,1 +1,1 @@
-# This repositary is created for testing the PDNA app built on Shiny.
+# This repositary includes the script for all the versions of PDNA app built on Shiny.
