@@ -143,6 +143,12 @@ function(input,output,session) {
   source("tree_custom.R",local=TRUE)
   source("livestock_custom.R",local=TRUE)
   
+  # handling the input viewer table
+  output$view_results <- renderTable({
+    input$default || input$default_tree || input$default_land || input$default_asset || input$default_livestock || input$custom_crop || input$custom_tree || input$custom_livestock
+    responses[nrow(responses),c(11:length(responses)-5,length(responses)-2,length(responses)-1,length(responses))]
+  })
+  
   # designing the DataTable to show the Damage/Loss sum
   sketch = htmltools::withTags(table(
     tableHeader(c("N","Name","Community","Disaster","Damage","Loss")),
@@ -170,7 +176,7 @@ function(input,output,session) {
   
   # Show the previous responses (update with current response when default is clicked)
   output$table <- DT::renderDataTable(filter = 'top', container = sketch,extensions = 'Buttons',options = opts,{
-    input$default || input$default_tree || input$default_land
+    input$default || input$default_tree || input$default_land || input$default_asset || input$default_livestock || input$custom_crop || input$custom_tree || input$custom_livestock
     loadData()
   })
   # toggle Modal windows after submission to show confirmation page
