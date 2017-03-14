@@ -29,7 +29,10 @@ body <- dashboardBody(useShinyjs(), extendShinyjs(text = jscode),tabItems(
                                source("land.R",local=TRUE)$value,
                                source("assets.R",local=TRUE)$value
                              )),
-                           fluidRow(column(2,offset=5,actionButton("finish_entry","Finish Entry", width="100%")))
+                           fluidRow(column(2,offset=5,actionButton("finish_entry","Finish Entry", width="100%"))),
+                           conditionalPanel(condition=
+          '(input$default + input$default_tree + input$default_land + input$default_asset + input$default_livestock + input$custom_crop + input$custom_tree + input$custom_livestock) !=0',
+                           wellPanel(tableOutput("view_results")))
                            )
   ),
   tabItem(tabName = "report",
