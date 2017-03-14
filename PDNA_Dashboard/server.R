@@ -63,7 +63,7 @@ function(input,output,session) {
       query <- paste0("select name from fermers where ID='",responses[i,2],"';", sep = "")
       rs <- dbGetQuery(mydb, query)
       responses[i,len-2]<<-rs[,1]
-      query <- paste0("select name from Community where ID='",responses[i,4],"';", sep = "")
+      query <- paste0("select name from community where ID='",responses[i,4],"';", sep = "")
       rs <- dbGetQuery(mydb, query)
       responses[i,len-1]<<-rs[,1]
       query <- paste0("select Disaster_ID from disaster_event where ID='",responses[i,5],"';", sep = "")
@@ -111,7 +111,7 @@ function(input,output,session) {
     
     
     com_name = formData()$community
-    rs = dbSendQuery(mydb, "select * from Community")
+    rs = dbSendQuery(mydb, "select * from community")
     rs = fetch(rs, n=-1)
     com_id = as.matrix(rs["ID"])[which(rs["name"] == com_name)]
     name = formData()$name
