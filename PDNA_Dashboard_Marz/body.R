@@ -50,7 +50,10 @@ body <- dashboardBody(tabItems(
             column(4,source("default_annual.R",local=TRUE)[1]),
             column(4,source("default_livestock.R",local=TRUE)[1])),
           fluidRow(column(4,offset = 4,
-                          actionButton("update_defaults","Update",width = "100%")))
+                          actionButton("update_defaults","Update",width = "100%"))),
+          bsModal("def_update_confirmation","Success !","update_defaults",size="small",
+            helpText("Default values have been updated")
+          )
   ),
   tabItem(tabName = "test",
           tags$iframe(id = "googleform",
