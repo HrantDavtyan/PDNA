@@ -1,5 +1,7 @@
 library("DT")
 
+database <- data.frame(matrix(ncol = 5, nrow = 0))
+
 marz_list <- sort(c("","Tavush","Lori","Ararat","Armavir","Aragatsotn",
                     "Kotayq","Shirak","Syunik","Gegharqunik","Vayots Dzor",""))
 
