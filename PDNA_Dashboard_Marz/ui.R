@@ -1,4 +1,6 @@
+library(shiny)
 library(shinydashboard)
+library(shinyBS)
 
 source('header.R',local=TRUE)
 source('sidebar.R',local=TRUE)
